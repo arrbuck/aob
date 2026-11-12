@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.wrangler/
+# Local secrets for the Worker — never commit
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+*.log
