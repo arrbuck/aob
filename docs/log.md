@@ -42,3 +42,6 @@ Newest entries at the bottom. Plain technical English: what was done, how, and w
   - Set a repo-local identity (`git config user.name` / `user.email`, without `--global`, so it only affects this project) to the GitHub-provided noreply address.
   - Rewrote all commits: `git rebase --root --exec "git commit --amend --no-edit --reset-author"`. This replays every commit from the first one and re-stamps the author with the current identity. File contents unchanged (`git diff old new` empty); commit IDs change because they're hashes that include the author.
   - The old GitHub repo still holds the old commits, so it's being deleted and recreated rather than force-pushed (GitHub can keep overwritten commits reachable for a while). GitHub's "block command line pushes that expose my email" setting rejects future pushes containing the personal address.
+  - After recreating the GitHub repo and pushing: verified `origin/main` == local `main` and that GitHub's history contains only the noreply address.
+  - Purged the old commits locally: `git reflog expire --expire=now --all` (drops git's undo history that still pointed at them) then `git gc --prune=now` (deletes unreferenced objects). Deleted the backup bundle. Verified no trace of the old identity remains.
+- **Account security:** two-factor authentication enabled on GitHub and CF.
