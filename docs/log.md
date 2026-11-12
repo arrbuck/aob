@@ -45,3 +45,9 @@ Newest entries at the bottom. Plain technical English: what was done, how, and w
   - After recreating the GitHub repo and pushing: verified `origin/main` == local `main` and that GitHub's history contains only the noreply address.
   - Purged the old commits locally: `git reflog expire --expire=now --all` (drops git's undo history that still pointed at them) then `git gc --prune=now` (deletes unreferenced objects). Deleted the backup bundle. Verified no trace of the old identity remains.
 - **Account security:** two-factor authentication enabled on GitHub and CF.
+- **Secret scanning with Gitleaks 8.30.1** (installed via `winget install --id Gitleaks.Gitleaks -e`):
+  - `.githooks/pre-commit` — a shell script git runs before each commit (Git for Windows runs hooks with its bundled shell). It runs `gitleaks git --pre-commit --staged --redact`, which scans only the changes being committed; non-zero exit blocks the commit. Fails closed: if Gitleaks isn't installed, the commit is refused.
+  - `git config core.hooksPath .githooks` — points git at that folder. Hooks normally live in `.git/hooks`, which isn't version-controlled; keeping them in `.githooks/` means the hook itself is in git. The config setting is local, so a fresh clone needs it re-run (noted in the cheat sheet).
+  - Verified: full history scan (`gitleaks git .`) found no leaks across 6 commits; a test commit containing a fake GitHub-token-shaped string was blocked.
+  - Limits: pattern-based, so it catches known key formats and high-entropy strings, not everything. `git commit --no-verify` skips hooks — never use it.
+- **Plan check:** CF account is on the Workers Free plan.

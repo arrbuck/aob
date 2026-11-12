@@ -35,5 +35,12 @@ Press `q` to leave any screen that fills the window.
 
 Avoid `git reset --hard` and `git push --force` unless you've asked first: they delete history.
 
+## Secret scanning
+Every commit is checked automatically by Gitleaks. If it finds something that looks like a key, the commit is refused and it tells you which file and line. Remove the secret and commit again.
+
+- Never bypass it with `--no-verify`.
+- Scan the whole history by hand: `gitleaks git . --redact`
+- On a fresh copy of the repo (new laptop), switch the check on once with: `git config core.hooksPath .githooks`
+
 ## Never commit
 Secrets: API keys live in `.dev.vars` (local) and Cloudflare Worker secrets (online). `.gitignore` already blocks `.dev.vars` and `.env` files. If `git status` ever lists one, stop and ask.
