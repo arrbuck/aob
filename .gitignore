@@ -4,8 +4,6 @@ dist/
 # Local secrets for the Worker — never commit
 .dev.vars
 .dev.vars.*
-# ...except the names-only template
-!.dev.vars.example
 .env
 .env.*
 *.log

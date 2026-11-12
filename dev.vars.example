@@ -1,6 +1,6 @@
 # Template for local secrets. Committed to git with NAMES ONLY, never values.
 # To use: copy to .dev.vars (git-ignored) and fill in values there yourself:
-#   Copy-Item .dev.vars.example .dev.vars; notepad .dev.vars
+#   Copy-Item dev.vars.example .dev.vars; notepad .dev.vars
 # Online, the same names are set with: npx wrangler secret put NAME
 #
 # Never prefix a secret with VITE_ : Vite copies VITE_* values into browser code.
