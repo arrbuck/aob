@@ -5,7 +5,7 @@ Newest entries at the bottom. Plain technical English: what was done, how, and w
 ## 2026-11-12 — session 1
 
 ### Context
-- A first session (ID d0bc28dc) ran ~7 minutes doing research only, then ended when the folder was opened in VS Code. It wrote no files (Claude Code's session stats: 0 lines added). Its research findings were recovered from the transcript in `~/.claude/projects/C--dev-aob/` and are summarised below.
+- An earlier session did research only and ended before writing any files. Its findings were recovered and are summarised below.
 
 ### Research findings (checked against live docs on 2026-11-12)
 - **Whisper on Workers AI:** model `@cf/openai/whisper-large-v3-turbo`. Accepts audio as a base64 string. Returns the transcript plus word-level timings (useful later for lip-sync).
@@ -17,7 +17,7 @@ Newest entries at the bottom. Plain technical English: what was done, how, and w
 - **Rate limiting:** Workers have a built-in `ratelimits` binding (configured in wrangler config, e.g. 50 requests per 10 s per key).
 - **Tooling versions (npm, today):** vite 8.3.8, typescript 7.0.2, @cloudflare/vite-plugin 1.69.1, @vitejs/plugin-basic-ssl 2.3.0, wrangler 4.161.0.
 
-### Decisions from the user
+### Decisions
 - Subdomain: `aob.<domain>` (domain name to be supplied).
 - Private GitHub repo named `aob`.
 - Include Jev in the decision-model comparison (user to sign up to OpenRouter when needed).
@@ -36,4 +36,4 @@ Newest entries at the bottom. Plain technical English: what was done, how, and w
 - Verified: `npm run typecheck` passes; `vite build` produces a 0.9 kB bundle.
 - `git init -b main` — local repository on branch `main`. Commits use the existing global git identity.
 - Added `docs/git-cheatsheet.md` (everyday git commands).
-- **GitHub:** private repo `arrbuck/aob` created by the user on github.com (empty, no README). Remote `origin` = `https://github.com/arrbuck/aob.git`; first push with `git push -u origin main` (`-u` sets upstream so later `git push` needs no arguments). Authentication via Git Credential Manager (bundled with Git for Windows): browser OAuth flow, which redirects to a temporary local listener on `127.0.0.1:<port>` to hand the one-time code back to git; the token is then stored in Windows Credential Manager, not in the repo. Verified with `git ls-remote origin` — remote `main` matches local `59fe387`.
+- **GitHub:** private repo `aob` created on github.com (empty, no README). Remote `origin` points at it over HTTPS; first push with `git push -u origin main` (`-u` sets upstream so later `git push` needs no arguments). Authentication via Git Credential Manager (bundled with Git for Windows): browser OAuth flow, which redirects to a temporary local listener on `127.0.0.1:<port>` to hand the one-time code back to git; the token is then stored in Windows Credential Manager, not in the repo. Verified with `git ls-remote origin` — remote `main` matches local `59fe387`.
