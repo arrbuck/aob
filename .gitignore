@@ -7,3 +7,5 @@ dist/
 .env
 .env.*
 *.log
+# Creative/design reference notes (from ChatGPT / claude.ai) — kept local, not in git
+creative/
