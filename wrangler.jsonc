@@ -1,0 +1,33 @@
+// CF Worker settings. Read by Wrangler and the CF Vite plugin.
+// No secrets in here: this file is committed to git. Secrets go in
+// .dev.vars locally, and `npx wrangler secret put NAME` online.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "aob",
+  "main": "worker/index.ts",
+  // Pins CF runtime behaviour to this date so platform updates don't change it under us.
+  "compatibility_date": "2026-11-12",
+
+  // Not deployed anywhere yet; stops an accidental deploy to a *.workers.dev address.
+  "workers_dev": false,
+
+  "assets": {
+    // Unknown paths serve index.html (normal for a single-page web app)...
+    "not_found_handling": "single-page-application",
+    // ...except /api/*, which always goes to the Worker code.
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Workers AI. Models always run on CF's servers, even in local dev,
+  // using the free daily allowance (Workers Free plan: errors when used up, never bills).
+  "ai": { "binding": "AI", "remote": true },
+
+  // Rate limit for anything that calls an AI service. Period must be 10 or 60 seconds.
+  "ratelimits": [
+    {
+      "name": "AI_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 }
+    }
+  ]
+}
