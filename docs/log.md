@@ -34,4 +34,6 @@ Newest entries at the bottom. Plain technical English: what was done, how, and w
   - `.gitattributes` — normalises line endings to LF in the repo (silences Windows CRLF warnings, avoids noisy diffs).
 - Installed dev dependencies (exact versions): vite 8.3.8, typescript 7.0.2 (the new native "Go" compiler; `tsc` works as before), @vitejs/plugin-basic-ssl 2.3.0. `package-lock.json` pins the full dependency tree.
 - Verified: `npm run typecheck` passes; `vite build` produces a 0.9 kB bundle.
-- `git init -b main` — local repository on branch `main`. Commits use the existing global git identity. Nothing pushed anywhere yet.
+- `git init -b main` — local repository on branch `main`. Commits use the existing global git identity.
+- Added `docs/git-cheatsheet.md` (everyday git commands).
+- **GitHub:** private repo `arrbuck/aob` created by the user on github.com (empty, no README). Remote `origin` = `https://github.com/arrbuck/aob.git`; first push with `git push -u origin main` (`-u` sets upstream so later `git push` needs no arguments). Authentication via Git Credential Manager (bundled with Git for Windows): browser OAuth flow, which redirects to a temporary local listener on `127.0.0.1:<port>` to hand the one-time code back to git; the token is then stored in Windows Credential Manager, not in the repo. Verified with `git ls-remote origin` — remote `main` matches local `59fe387`.
