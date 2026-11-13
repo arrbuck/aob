@@ -2,7 +2,7 @@
 
 Plain-English summary of every security measure in this project, and the rules to follow. Keep this current whenever anything security-related changes.
 
-_Last updated: 2026-11-12_
+_Last updated: 2026-11-13_
 
 ## Secret files
 | File | What it's for | In git? |
@@ -14,7 +14,7 @@ _Last updated: 2026-11-12_
 Online, keys will live in CF's encrypted Worker secrets (set with `npx wrangler secret put NAME`, which prompts for the value and never writes it to a file). Nothing is deployed yet, so none exist.
 
 ## What keeps secrets out of git
-- **`.gitignore`** excludes `.dev.vars`, `.dev.vars.*`, `.env`, `.env.*`, plus `node_modules/`, `dist/`, `.wrangler/` (local CF cache), `*.log` and `creative/`.
+- **`.gitignore`** excludes `.dev.vars`, `.dev.vars.*`, `.env`, `.env.*`, plus `node_modules/`, `dist/`, `.wrangler/` (local CF cache), `*.log`, `creative/` and `spike-results/`.
 - **Gitleaks pre-commit hook** (`.githooks/pre-commit`): every commit is scanned for anything that looks like a key, token or password, and blocked if found. It fails closed: if Gitleaks isn't installed, commits are refused. Git is pointed at the hook with `git config core.hooksPath .githooks`; re-run that on any fresh copy of the repo. Full history scan: `gitleaks git . --redact`.
 
 ## What keeps secrets away from Claude Code
@@ -42,6 +42,13 @@ Online, keys will live in CF's encrypted Worker secrets (set with `npx wrangler 
 - **Recording cap:** the voice test stops recording after 10 seconds.
 - **No public address:** `workers_dev: false` in `wrangler.jsonc` stops accidental deploys to a public `*.workers.dev` URL.
 - **npm install scripts:** npm blocks packages from running code at install time unless approved. None approved so far (`npm install-scripts ls`).
+
+## Dev-only endpoint
+- While `npm run dev` runs, `POST /__spike/results` lets the voice test page (e.g. on a phone) save its results to `spike-results/results.jsonl` on the laptop. Numbers only, no audio; 256 KB limit; anything except a valid JSON POST is refused.
+- It exists only in the dev server (never in a build or deploy). Anyone on the same Wi-Fi could post to it while it runs, which is one more reason not to run the dev server on public Wi-Fi.
+
+## Claude Code plugins
+- None installed. Four official ones were assessed and put on hold (notes in `creative/plugin-assessment.md`). Only install from Anthropic's official marketplace or CF's own repo, and record any install here.
 
 ## Privacy
 - Stage A voice test: audio stays in the browser.

@@ -21,6 +21,7 @@ Identity-based abuse (racist, sexist, homophobic, etc.) is a dead end in-game: z
 ## Decided
 - Vite + strict TypeScript, code-first (no editor-driven engine).
 - A Cloudflare Worker sits between the game and any paid/AI service and holds all secrets. Anything that calls an AI service is rate-limited.
+- **Voice levels (2026-11-13):** the core mechanic is **whisper vs speak**: whispering reaches neighbours, speaking reaches the room. **Shouting is a bonus**, never required: extra points or chaos if you really shout. An on-screen shout button or gesture gives the same effect for players who can't shout (public places, late at night, accessibility). Reason: shouting is often impractical, and whisper vs speak tested as reliably detectable.
 
 ## Working assumptions (to test, not decisions)
 - Voice pipeline candidate:

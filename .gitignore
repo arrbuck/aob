@@ -7,5 +7,7 @@ dist/
 .env
 .env.*
 *.log
+# Voice test results sent from phones during dev (numbers only)
+spike-results/
 # Creative/design reference notes (from ChatGPT / claude.ai) — kept local, not in git
 creative/
