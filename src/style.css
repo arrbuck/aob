@@ -91,6 +91,8 @@ code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem;
 table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
 th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .instruction { font-size: 1.1rem; margin: 0 0 10px; }
+.transcript { font-size: 1.15rem; margin: 6px 0; }
+td:last-child { white-space: normal; min-width: 12em; }
 #ptt { margin-top: 12px; }
 details > summary { cursor: pointer; color: var(--muted); padding: 8px 0; }
 select { font: inherit; padding: 4px 6px; border-radius: 8px; }

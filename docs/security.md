@@ -52,7 +52,10 @@ Online, keys will live in CF's encrypted Worker secrets (set with `npx wrangler 
 
 ## Privacy
 - Stage A voice test: audio stays in the browser.
-- From stage B: speech recordings go to CF's Whisper for transcription; only text goes to decision models. The Worker stores nothing.
+- Stage B (now live locally): in the test step, each recording goes to our Worker and on to CF Whisper for transcription. Calibration recordings never leave the browser. Per CF's Workers AI data policy (checked 2026-11-13), inputs and outputs aren't retained after processing and aren't used for training. The Worker stores and logs nothing.
+- `/api/transcribe` accepts audio types only (webm/mp4/ogg/wav/mpeg), refuses anything over 1 MB, and is rate-limited.
+- "Send results to laptop" now includes transcripts of test attempts, saved only in the git-ignored `spike-results/` on the laptop.
+- Stage C: only text (transcripts), never audio, will go to decision models.
 - `creative/` is git-ignored, so it is **not backed up to GitHub**. Back it up separately if it matters.
 
 ## Rules to follow

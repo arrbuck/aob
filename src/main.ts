@@ -1,6 +1,8 @@
-// Voice spike, stage A: mic loudness only. Audio never leaves the browser.
+// Voice spike, stage B: loudness (in the browser) + speech-to-text (Whisper via our Worker).
+// Calibration audio never leaves the browser; test attempts are sent for transcription.
 import "./style.css";
 import { Mic, type MicOptions } from "./spike/mic";
+import { wordErrorRate } from "./spike/wer";
 import {
   DEFAULT_CALIBRATION, calibrate, judge, measure,
   type Calibration, type Frame, type Measure, type Verdict,
@@ -19,12 +21,40 @@ const STEP_TEXT: Record<Step, { verb: string; phrase: string }> = {
   shout: { verb: "Shout (optional)", phrase: "“ANY OTHER BUSINESS?!”" },
 };
 
+/** Workers AI list price for Whisper large-v3-turbo (checked 2026-11-13). */
+const WHISPER_USD_PER_MIN = 0.000513;
+
+const TEST_PHRASES = [
+  "Can we circle back on that after lunch?",
+  "Who approved this budget?",
+  "I think the projector is broken again.",
+  "This could have been an email.",
+  "Has anyone seen my stapler?",
+  "Let's park that and move on to item four.",
+  "Sorry, you're on mute.",
+  "Are there any biscuits left?",
+];
+
+interface Stt {
+  text: string;
+  wer: number | null;
+  sttMs: number;
+  roundTripMs: number;
+  bytes: number;
+  audioSecs: number;
+  costUsd: number;
+  error?: string;
+}
+
 interface Attempt {
   n: number;
   meant: Step;
+  distance: string;
+  phrase: string | null;
   measure: Measure;
   verdict: Verdict;
   settings: MicOptions;
+  stt: Stt | null;
 }
 
 const device = /iPhone|iPad/.test(navigator.userAgent) ? "iPhone/iPad"
@@ -35,7 +65,7 @@ if (!app) throw new Error("Missing #app element");
 
 app.innerHTML = `
   <h1>AOB voice test</h1>
-  <p class="lede">Loudness only. Your voice stays on this device.</p>
+  <p class="lede">Calibration stays on this device. In the test step, each recording is sent to our Worker for transcription (CF Whisper; not stored, not used for training).</p>
 
   <section>
     <h2>1. Turn the mic on</h2>
@@ -56,6 +86,7 @@ app.innerHTML = `
 
   <section id="resultBox" hidden>
     <div class="verdict" id="verdict">–</div>
+    <p class="transcript" id="transcript"></p>
     <p class="muted mono" id="resultText"></p>
   </section>
 
@@ -67,7 +98,7 @@ app.innerHTML = `
       <span class="muted" id="score"></span>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>#</th><th>meant</th><th>heard</th><th>dB</th><th>breathy</th><th>score</th></tr></thead>
+      <thead><tr><th>#</th><th>meant</th><th>heard</th><th>distance</th><th>dB</th><th>breathy</th><th>words wrong</th><th>STT s</th><th>transcript</th></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
   </section>
@@ -98,7 +129,7 @@ const ui = {
   stepTitle: el("stepTitle"), instruction: el("instruction"), meterFill: el("meterFill"),
   ptt: el<HTMLButtonElement>("ptt"), hint: el("hint"),
   skipShout: el<HTMLButtonElement>("skipShout"), recal: el<HTMLButtonElement>("recal"),
-  resultBox: el("resultBox"), verdict: el("verdict"), resultText: el("resultText"),
+  resultBox: el("resultBox"), verdict: el("verdict"), resultText: el("resultText"), transcript: el("transcript"),
   attemptsBox: el("attemptsBox"), send: el<HTMLButtonElement>("send"), copy: el<HTMLButtonElement>("copy"),
   score: el("score"), rows: el("rows"),
   agc: el<HTMLInputElement>("agc"), ns: el<HTMLInputElement>("ns"), ec: el<HTMLInputElement>("ec"),
@@ -118,7 +149,13 @@ const state = {
   calibration: DEFAULT_CALIBRATION as Calibration,
   attempts: [] as Attempt[],
   playbackUrl: "",
+  phrase: TEST_PHRASES[0] ?? "",
 };
+
+function nextPhrase(): void {
+  const others = TEST_PHRASES.filter((p) => p !== state.phrase);
+  state.phrase = others[Math.floor(Math.random() * others.length)] ?? state.phrase;
+}
 
 // ---- Microphone ----
 
@@ -187,15 +224,62 @@ function renderStep(): void {
     ui.instruction.append(b);
   } else {
     ui.stepTitle.textContent = "3. Test it";
-    ui.instruction.innerHTML = `
-      <span>I'm about to: </span>
-      <select id="meant"><option value="whisper">whisper</option><option value="normal" selected>talk normally</option><option value="shout">shout</option></select>`;
+    if (!document.getElementById("meant")) {
+      ui.instruction.innerHTML = `
+        <label>I'm about to:
+          <select id="meant"><option value="whisper">whisper</option><option value="normal" selected>talk normally</option><option value="shout">shout</option></select></label>
+        <label>Distance from mic:
+          <select id="distance"><option value="close">close (under 30 cm)</option><option value="arm">arm's length</option><option value="far">across the room</option></select></label>
+        <label><input type="checkbox" id="usePhrase" checked /> Say this: <strong id="phrase"></strong></label>
+        <button id="newPhrase" type="button">Different phrase</button>`;
+      document.getElementById("newPhrase")?.addEventListener("click", () => { nextPhrase(); renderPhrase(); });
+    }
+    renderPhrase();
   }
   const c = state.calibration;
   ui.calText.textContent =
     `Calibration: whisper ${c.whisperDb.toFixed(1)} dB / breathy ${c.whisperFlatness.toFixed(2)}; ` +
     `normal ${c.normalDb.toFixed(1)} dB / breathy ${c.normalFlatness.toFixed(2)}; ` +
     `shout ${c.shoutDb !== undefined ? c.shoutDb.toFixed(1) + " dB" : "not calibrated"}`;
+}
+
+function renderPhrase(): void {
+  const p = document.getElementById("phrase");
+  if (p) p.textContent = `“${state.phrase}”`;
+}
+
+function selectValue(id: string): string | undefined {
+  return (document.getElementById(id) as HTMLSelectElement | null)?.value;
+}
+
+async function transcribeBlob(blob: Blob, phrase: string | null, audioSecs: number): Promise<Stt> {
+  const started = performance.now();
+  const empty: Stt = { text: "", wer: null, sttMs: 0, roundTripMs: 0, bytes: blob.size, audioSecs, costUsd: 0 };
+  try {
+    const res = await fetch("/api/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": blob.type.split(";")[0] || "audio/webm" },
+      body: blob,
+    });
+    const body = (await res.json()) as {
+      error?: string; sttMs?: number; result?: { text?: string; transcription_info?: { duration?: number } };
+    };
+    const roundTripMs = performance.now() - started;
+    if (!res.ok || body.error) return { ...empty, roundTripMs, error: body.error ?? `HTTP ${res.status}` };
+    const text = (body.result?.text ?? "").trim();
+    const secs = body.result?.transcription_info?.duration ?? audioSecs;
+    return {
+      text,
+      wer: phrase ? wordErrorRate(phrase, text) : null,
+      sttMs: body.sttMs ?? 0,
+      roundTripMs,
+      bytes: blob.size,
+      audioSecs: secs,
+      costUsd: (secs / 60) * WHISPER_USD_PER_MIN,
+    };
+  } catch (err) {
+    return { ...empty, roundTripMs: performance.now() - started, error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 ui.skipShout.addEventListener("click", finishCalibration);
@@ -206,7 +290,7 @@ ui.recal.addEventListener("click", () => {
   startCalibration();
 });
 
-function handleUtterance(m: Measure): void {
+function handleUtterance(m: Measure, blob: Blob): void {
   if (state.step) {
     state.samples[state.step].push(m);
     showMeasure(m, null);
@@ -223,11 +307,40 @@ function handleUtterance(m: Measure): void {
     }
     return;
   }
-  const meant = (document.getElementById("meant") as HTMLSelectElement | null)?.value as Step | undefined;
-  const verdict = judge(m, state.calibration);
-  state.attempts.push({ n: state.attempts.length + 1, meant: meant ?? "normal", measure: m, verdict, settings: options() });
-  showMeasure(m, verdict);
+  const meant = (selectValue("meant") as Step | undefined) ?? "normal";
+  const usePhrase = (document.getElementById("usePhrase") as HTMLInputElement | null)?.checked ?? false;
+  const attempt: Attempt = {
+    n: state.attempts.length + 1,
+    meant,
+    distance: selectValue("distance") ?? "close",
+    phrase: usePhrase ? state.phrase : null,
+    measure: m,
+    verdict: judge(m, state.calibration),
+    settings: options(),
+    stt: null,
+  };
+  state.attempts.push(attempt);
+  showMeasure(m, attempt.verdict);
+  ui.transcript.textContent = "Transcribing…";
   renderAttempts();
+  void transcribeBlob(blob, attempt.phrase, m.durationMs / 1000).then((stt) => {
+    attempt.stt = stt;
+    if (state.attempts[state.attempts.length - 1] === attempt) showTranscript(stt);
+    renderAttempts();
+  });
+  if (usePhrase) { nextPhrase(); renderPhrase(); }
+}
+
+function showTranscript(stt: Stt): void {
+  if (stt.error) {
+    ui.transcript.textContent = `Transcription failed: ${stt.error}`;
+    return;
+  }
+  ui.transcript.textContent = stt.text ? `“${stt.text}”` : "(heard nothing)";
+  ui.resultText.textContent +=
+    ` · STT ${(stt.sttMs / 1000).toFixed(2)} s (round trip ${(stt.roundTripMs / 1000).toFixed(2)} s)` +
+    (stt.wer !== null ? ` · ${Math.round(stt.wer * 100)}% words wrong` : "") +
+    ` · cost $${stt.costUsd.toFixed(6)}`;
 }
 
 // ---- Live meter ----
@@ -270,7 +383,7 @@ async function stopTalking(): Promise<void> {
     return;
   }
   ui.hint.textContent = "Hold the button (or the space bar) while you speak, then let go.";
-  handleUtterance(measure(state.frames, durationMs));
+  handleUtterance(measure(state.frames, durationMs), blob);
 
   if (state.playbackUrl) URL.revokeObjectURL(state.playbackUrl);
   state.playbackUrl = URL.createObjectURL(blob);
@@ -310,8 +423,12 @@ function renderAttempts(): void {
   ui.rows.innerHTML = "";
   for (const a of [...state.attempts].reverse()) {
     const tr = document.createElement("tr");
-    for (const c of [String(a.n), a.meant, a.verdict.loudness, a.measure.speechDb.toFixed(1),
-      a.measure.flatness.toFixed(2), fmt(a.verdict.combined)]) {
+    const stt = a.stt;
+    for (const c of [String(a.n), a.meant, a.verdict.loudness, a.distance, a.measure.speechDb.toFixed(1),
+      a.measure.flatness.toFixed(2),
+      stt?.wer != null ? `${Math.round(stt.wer * 100)}%` : "–",
+      stt ? (stt.error ? "error" : (stt.sttMs / 1000).toFixed(1)) : "…",
+      stt ? (stt.error ?? stt.text) : "…"]) {
       const td = document.createElement("td");
       td.textContent = c;
       tr.appendChild(td);
