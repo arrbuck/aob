@@ -90,8 +90,9 @@ app.innerHTML = `
     <p class="muted mono" id="resultText"></p>
   </section>
 
-  <section id="attemptsBox" hidden>
+  <section id="attemptsBox">
     <h2>Your tests</h2>
+    <p class="muted">Send any time, even part-way through. Incomplete results are fine.</p>
     <div class="row" style="margin-bottom:8px">
       <button id="send">Send results to laptop</button>
       <button id="copy">Copy as text</button>
@@ -419,7 +420,6 @@ function showMeasure(m: Measure, v: Verdict | null): void {
 }
 
 function renderAttempts(): void {
-  ui.attemptsBox.hidden = state.attempts.length === 0;
   ui.rows.innerHTML = "";
   for (const a of [...state.attempts].reverse()) {
     const tr = document.createElement("tr");
@@ -443,6 +443,7 @@ function renderAttempts(): void {
 function report(): object {
   return {
     device,
+    stage: state.step ? `calibrating (${state.step})` : "testing",
     userAgent: navigator.userAgent,
     applied: state.mic?.appliedSettings() ?? null,
     calibration: state.calibration,
